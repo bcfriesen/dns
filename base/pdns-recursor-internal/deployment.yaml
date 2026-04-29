@@ -38,6 +38,33 @@ spec:
         fsGroup: 953
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: resolve-auth-ip
+          image: busybox:1.36
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Resolving pdns-auth ClusterIP..."
+              AUTH_IP=$(nslookup pdns-auth.dns.svc.cluster.local | \
+                awk '/^Address: / { print $2 }' | head -1)
+              if [ -z "$AUTH_IP" ]; then
+                echo "ERROR: failed to resolve pdns-auth.dns.svc.cluster.local"
+                exit 1
+              fi
+              echo "Resolved pdns-auth to $AUTH_IP"
+              echo "example.com=${AUTH_IP}:5300" > /etc/powerdns/forward-zones.conf
+              echo "Wrote forward-zones.conf:"
+              cat /etc/powerdns/forward-zones.conf
+          volumeMounts:
+            - name: forward-zones
+              mountPath: /etc/powerdns
       containers:
         - name: pdns-recursor-internal
           image: powerdns/pdns-recursor-50:5.0.4
@@ -56,6 +83,10 @@ spec:
             - name: config
               mountPath: /etc/powerdns/pdns-recursor.lua
               subPath: pdns-recursor.lua
+              readOnly: true
+            - name: forward-zones
+              mountPath: /etc/powerdns/forward-zones.conf
+              subPath: forward-zones.conf
               readOnly: true
             - name: tmp
               mountPath: /tmp
@@ -93,6 +124,8 @@ spec:
         - name: config
           configMap:
             name: pdns-recursor-internal-config
+        - name: forward-zones
+          emptyDir: {}
         - name: tmp
           emptyDir: {}
         - name: var-run

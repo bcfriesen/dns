@@ -21,13 +21,13 @@ data:
     # nameserver and forwards all other queries to upstream DNS.
     # Network policy enforces that only on-system clients can reach it.
 
-    # Forward all internal zones to the on-system authoritative nameserver.
-    forward-zones=\
-      example.com=pdns-auth.dns.svc.cluster.local:5300
+    # Forward zones are written at startup by the init container,
+    # which resolves the pdns-auth ClusterIP and writes it here.
+    forward-zones-file=/etc/powerdns/forward-zones.conf
 
     # Forward all other queries (public IPs, GUAs) to upstream DNS.
     # These queries leave the system and are resolved externally.
-    forward-zones-recurse=.=8.8.8.8
+    forward-zones-recurse=.=10.100.0.1
 
     # --- DNSSEC ---
     # Enforce DNSSEC validation for all recursive lookups per security requirements.
