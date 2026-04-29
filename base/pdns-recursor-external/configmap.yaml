@@ -10,9 +10,8 @@ data:
   recursor.conf: |
     # --- Core settings ---
     daemon=no
-    local-address=0.0.0.0
+    local-address=0.0.0.0,::
     local-port=5302
-    local-ipv6=::
     setuid=pdns
     setgid=pdns
 

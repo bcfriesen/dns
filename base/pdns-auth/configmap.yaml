@@ -13,10 +13,8 @@ data:
     guardian=no
     setuid=pdns
     setgid=pdns
-    local-address=0.0.0.0
+    local-address=0.0.0.0,::
     local-port=5300
-    # Bind to IPv6 as well
-    local-ipv6=::
 
     # --- Backend ---
     # gpgsql backend provides shared zone state across the HA pair
