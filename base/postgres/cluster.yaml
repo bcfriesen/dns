@@ -1,0 +1,40 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pdns-postgres
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-postgres
+    app.kubernetes.io/component: database
+spec:
+  instances: 3
+
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+
+  bootstrap:
+    initdb:
+      database: pdns
+      owner: pdns
+      secret:
+        name: pdns-postgres-superuser
+
+  storage:
+    size: 10Gi
+    storageClass: standard-rwo   # use your GKE storage class
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+
+  monitoring:
+    enablePodMonitor: false
+
+  backup:
+    retentionPolicy: 7d

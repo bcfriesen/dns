@@ -6,6 +6,7 @@ namespace: dns
 resources:
   - namespace.yaml
   - rbac/
+  - postgres/
   - pdns-auth/
   - pdns-recursor-internal/
   - pdns-recursor-external/

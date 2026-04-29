@@ -56,6 +56,12 @@ spec:
       kind: ServiceMonitor
     - group: monitoring.coreos.com
       kind: PrometheusRule
+    - group: postgresql.cnpg.io
+      kind: Cluster
+    - group: postgresql.cnpg.io
+      kind: Backup
+    - group: postgresql.cnpg.io
+      kind: ScheduledBackup
 
   syncWindows:
     - kind: allow
