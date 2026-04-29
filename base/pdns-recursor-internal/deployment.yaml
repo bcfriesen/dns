@@ -52,13 +52,18 @@ spec:
             - |
               set -e
               echo "Resolving pdns-auth ClusterIP..."
-              AUTH_IP=$(nslookup pdns-auth.dns.svc.cluster.local | \
-                awk '/^Address: / { print $2 }' | head -1)
+              # busybox nslookup outputs "Address: x.x.x.x" for answers.
+              # Use grep and cut instead of awk to be safe.
+              AUTH_IP=$(nslookup pdns-auth.dns.svc.cluster.local 2>/dev/null \
+                | grep "^Address:" \
+                | tail -1 \
+                | cut -d' ' -f2)
               if [ -z "$AUTH_IP" ]; then
                 echo "ERROR: failed to resolve pdns-auth.dns.svc.cluster.local"
+                nslookup pdns-auth.dns.svc.cluster.local || true
                 exit 1
               fi
-              echo "Resolved pdns-auth to $AUTH_IP"
+              echo "Resolved pdns-auth to ${AUTH_IP}"
               echo "example.com=${AUTH_IP}:5300" > /etc/powerdns/forward-zones.conf
               echo "Wrote forward-zones.conf:"
               cat /etc/powerdns/forward-zones.conf

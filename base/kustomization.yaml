@@ -12,6 +12,7 @@ resources:
   - pdns-recursor-external/
   - networkpolicy.yaml
   - pdbs.yaml
+  - netpol-allow-dns-egress.yaml
 
 labels:
   - pairs:
