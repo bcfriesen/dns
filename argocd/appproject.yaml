@@ -40,14 +40,18 @@ spec:
       kind: Deployment
     - group: apps
       kind: StatefulSet
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
     - group: batch
       kind: Job
     - group: networking.k8s.io
       kind: NetworkPolicy
     - group: policy
       kind: PodDisruptionBudget
-    - group: autoscaling
-      kind: HorizontalPodAutoscaler
+    - group: rbac.authorization.k8s.io
+      kind: Role
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding
     - group: monitoring.coreos.com
       kind: ServiceMonitor
     - group: monitoring.coreos.com
