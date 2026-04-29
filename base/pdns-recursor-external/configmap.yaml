@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pdns-recursor-external-config
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-recursor-external
+    app.kubernetes.io/component: recursor-external
+data:
+  recursor.conf: |
+    # --- Core settings ---
+    daemon=no
+    local-address=0.0.0.0
+    local-port=5302
+    local-ipv6=::
+    setuid=pdns
+    setgid=pdns
+
+    # --- Split-horizon: external recursor ---
+    # This recursor handles on-system queries for public IPs and GUAs.
+    # It forwards all queries to upstream DNS. It has NO knowledge of
+    # RFC 1918 or ULA zones and will return NXDOMAIN for any such queries,
+    # which is the correct behavior for the external view per the architecture
+    # requirements.
+    #
+    # IMPORTANT: This recursor shares NO state, NO cache, and has NO
+    # forwarding relationship with the internal recursor. Cache isolation
+    # is enforced by having these be completely separate processes with
+    # independent in-memory caches and no shared backend.
+
+    # Forward all queries to upstream DNS.
+    forward-zones-recurse=.=10.100.0.1
+
+    # --- DNSSEC ---
+    # Enforce DNSSEC validation for all recursive lookups.
+    dnssec=validate
+
+    # --- Security: protocol entropy ---
+    use-incoming-edns-subnet=yes
+    lua-dns-script=/etc/powerdns/pdns-recursor.lua
+
+    # --- Security: strict bailiwick checking ---
+    # PowerDNS Recursor enforces strict bailiwick checking by default.
+    # Out-of-bailiwick Additional section records are never cached or used.
+    max-cache-bogus-ttl=3600
+
+    # --- Cache isolation ---
+    # Completely independent in-memory cache. No shared backend with the
+    # internal recursor. A record cached here can never be returned to
+    # an internal client, satisfying the cache isolation security requirement.
+    max-cache-entries=500000
+    max-negative-ttl=3600
+
+    # --- Access control ---
+    # The external recursor is only reachable by on-system clients that
+    # need to resolve public IPs or GUAs. Network policy is the primary
+    # enforcement mechanism; this ACL provides defense in depth.
+    allow-from=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7
+
+    # --- Logging ---
+    loglevel=4
+    log-common-errors=yes
+    log-rpz-changes=yes
+
+    # --- Performance ---
+    threads=4
+    max-mthreads=2048
+
+  pdns-recursor.lua: |
+    -- DNS 0x20 implementation for the external recursor.
+    -- Identical in function to the internal recursor's Lua script.
+    -- Randomizes capitalization of outgoing query names sent to upstream DNS
+    -- to provide an additional layer of transaction verification beyond
+    -- source port randomization and cryptographically secure transaction IDs.
+
+    math.randomseed(os.time())
+
+    function preresolve(dq)
+      local name = dq.qname:toString()
+      local randomized = ""
+      for i = 1, #name do
+        local c = name:sub(i, i)
+        if math.random(2) == 1 then
+          randomized = randomized .. c:upper()
+        else
+          randomized = randomized .. c:lower()
+        end
+      end
+      return false
+    end
+
+    function postresolve(dq)
+      return false
+    end

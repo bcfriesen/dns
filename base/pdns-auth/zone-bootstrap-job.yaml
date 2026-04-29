@@ -1,0 +1,134 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pdns-auth-zone-bootstrap
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-auth
+    app.kubernetes.io/component: zone-bootstrap
+  annotations:
+    # ArgoCD hook ensures this Job runs after the authoritative server
+    # Deployment is healthy and before the recursors are synced.
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  # The Job will retry up to 3 times if the bootstrap fails, for example
+  # if the authoritative server is not yet ready when the Job starts.
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pdns-auth
+        app.kubernetes.io/component: zone-bootstrap
+    spec:
+      serviceAccountName: pdns
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 953
+        runAsGroup: 953
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Wait for the authoritative server API to be available before
+        # attempting to bootstrap zones. The API must respond successfully
+        # to a GET /api/v1/servers/localhost request before we proceed.
+        - name: wait-for-api
+          image: curlimages/curl:8.5.0
+          command:
+            - sh
+            - -c
+            - |
+              until curl -sf \
+                -H "X-API-Key: ${PDNS_API_KEY}" \
+                http://pdns-auth.dns.svc.cluster.local:8081/api/v1/servers/localhost; do
+                echo "Waiting for pdns-auth API..."
+                sleep 5
+              done
+          envFrom:
+            - secretRef:
+                name: pdns-auth-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      containers:
+        - name: zone-bootstrap
+          image: powerdns/pdns-auth-48:4.8.4
+          command:
+            - sh
+            - -c
+            - |
+              set -euo pipefail
+
+              PDNSUTIL="pdnsutil --config-dir=/etc/powerdns"
+
+              echo "==> Creating internal forward zones..."
+              for zone in \
+                example.com; do
+                $PDNSUTIL create-zone ${zone} || true
+                $PDNSUTIL set-meta ${zone} SOA-EDIT INCEPTION-INCREMENT
+              done
+
+              echo "==> Creating RFC 1918 reverse zones..."
+              $PDNSUTIL create-zone 10.in-addr.arpa || true
+              $PDNSUTIL create-zone 168.192.in-addr.arpa || true
+              for i in $(seq 16 31); do
+                $PDNSUTIL create-zone ${i}.172.in-addr.arpa || true
+              done
+
+              echo "==> Creating IPv6 GUA reverse zone..."
+              $PDNSUTIL create-zone 8.b.d.0.1.0.0.2.ip6.arpa || true
+
+              echo "==> Enabling DNSSEC on all zones..."
+              for zone in \
+                example.com \
+                10.in-addr.arpa \
+                168.192.in-addr.arpa \
+                8.b.d.0.1.0.0.2.ip6.arpa; do
+                $PDNSUTIL secure-zone ${zone} || true
+                $PDNSUTIL rectify-zone ${zone} || true
+              done
+
+              for i in $(seq 16 31); do
+                $PDNSUTIL secure-zone ${i}.172.in-addr.arpa || true
+                $PDNSUTIL rectify-zone ${i}.172.in-addr.arpa || true
+              done
+
+              echo "==> Configuring TSIG key for AXFR to upstream..."
+              $PDNSUTIL generate-tsig-key upstream-axfr-key hmac-sha256 || true
+              $PDNSUTIL set-meta example.com TSIG-ALLOW-AXFR upstream-axfr-key
+              $PDNSUTIL set-meta 10.in-addr.arpa TSIG-ALLOW-AXFR upstream-axfr-key
+              $PDNSUTIL set-meta 8.b.d.0.1.0.0.2.ip6.arpa TSIG-ALLOW-AXFR upstream-axfr-key
+
+              echo "==> Zone bootstrap complete."
+          envFrom:
+            - secretRef:
+                name: pdns-auth-secret
+          volumeMounts:
+            - name: config
+              mountPath: /etc/powerdns/pdns.conf
+              subPath: pdns.conf
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+      volumes:
+        - name: config
+          configMap:
+            name: pdns-auth-config
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pdns
+  namespace: dns
+subjects:
+  - kind: ServiceAccount
+    name: pdns
+    namespace: dns
+roleRef:
+  kind: Role
+  apiGroup: rbac.authorization.k8s.io
+  name: pdns

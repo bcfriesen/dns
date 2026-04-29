@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdns-auth
+spec:
+  # Production runs three authoritative replicas for additional
+  # resilience beyond the minimum two required by the architecture.
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: pdns-auth
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 512Mi
+            limits:
+              cpu: 4000m
+              memory: 1Gi

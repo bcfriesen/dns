@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dns
+
+resources:
+  - ../../base
+  - hpa.yaml
+
+patches:
+  - path: pdns-auth-patch.yaml
+    target:
+      kind: Deployment
+      name: pdns-auth
+  - path: pdns-recursor-internal-patch.yaml
+    target:
+      kind: Deployment
+      name: pdns-recursor-internal
+  - path: pdns-recursor-external-patch.yaml
+    target:
+      kind: Deployment
+      name: pdns-recursor-external
+  - path: pdns-auth-config-patch.yaml
+    target:
+      kind: ConfigMap
+      name: pdns-auth-config
+
+images:
+  - name: powerdns/pdns-auth-48
+    newTag: 4.8.4
+  - name: powerdns/pdns-recursor-50
+    newTag: 5.0.4
+
+labels:
+  - pairs:
+      environment: production
+    includeSelectors: false
+    includeTemplates: true

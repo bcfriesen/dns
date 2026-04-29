@@ -1,0 +1,50 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdns-auth-pdb
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-auth
+    app.kubernetes.io/component: authoritative
+spec:
+  # Always keep at least one authoritative server available during
+  # voluntary disruptions. With three production replicas this allows
+  # one pod to be disrupted at a time.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-auth
+      app.kubernetes.io/component: authoritative
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdns-recursor-internal-pdb
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-recursor-internal
+    app.kubernetes.io/component: recursor-internal
+spec:
+  # The internal recursor serves all on-system RFC 1918 lookups.
+  # Keep at least two replicas available at all times to ensure
+  # continued resolution during node maintenance.
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-recursor-internal
+      app.kubernetes.io/component: recursor-internal
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdns-recursor-external-pdb
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-recursor-external
+    app.kubernetes.io/component: recursor-external
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-recursor-external
+      app.kubernetes.io/component: recursor-external

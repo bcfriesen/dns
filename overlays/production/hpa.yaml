@@ -1,0 +1,97 @@
+# HorizontalPodAutoscaler for the authoritative server.
+# The authoritative server scales based on CPU usage driven by
+# AXFR/IXFR synchronization load and record query volume.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pdns-auth-hpa
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-auth
+    app.kubernetes.io/component: authoritative
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pdns-auth
+  minReplicas: 3
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+# HorizontalPodAutoscaler for the internal recursor.
+# The internal recursor is expected to handle the bulk of DNS query
+# volume given that the majority of on-system traffic uses RFC 1918
+# addresses and will be resolved by this recursor.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pdns-recursor-internal-hpa
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-recursor-internal
+    app.kubernetes.io/component: recursor-internal
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pdns-recursor-internal
+  minReplicas: 3
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+# HorizontalPodAutoscaler for the external recursor.
+# The external recursor handles a smaller query volume than the internal
+# recursor since it only resolves public IPs and GUAs. It is given a
+# lower maximum replica count accordingly.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pdns-recursor-external-hpa
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-recursor-external
+    app.kubernetes.io/component: recursor-external
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pdns-recursor-external
+  minReplicas: 3
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdns-recursor-external
+  namespace: dns
+  labels:
+    app.kubernetes.io/name: pdns-recursor-external
+    app.kubernetes.io/component: recursor-external
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-recursor-external
+      app.kubernetes.io/component: recursor-external
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pdns-recursor-external
+        app.kubernetes.io/component: recursor-external
+    spec:
+      serviceAccountName: pdns
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: pdns-recursor-external
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 953
+        runAsGroup: 953
+        fsGroup: 953
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pdns-recursor-external
+          image: powerdns/pdns-recursor-50:5.0.4
+          ports:
+            - name: dns-udp
+              containerPort: 5302
+              protocol: UDP
+            - name: dns-tcp
+              containerPort: 5302
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/powerdns/recursor.conf
+              subPath: recursor.conf
+              readOnly: true
+            - name: config
+              mountPath: /etc/powerdns/pdns-recursor.lua
+              subPath: pdns-recursor.lua
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: var-run
+              mountPath: /var/run/pdns-recursor
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 1Gi
+          livenessProbe:
+            exec:
+              command:
+                - rec_control
+                - ping
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - rec_control
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: config
+          configMap:
+            name: pdns-recursor-external-config
+        - name: tmp
+          emptyDir: {}
+        - name: var-run
+          emptyDir: {}

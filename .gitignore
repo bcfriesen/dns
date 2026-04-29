@@ -1,0 +1,2 @@
+overlays/production/secrets.env
+overlays/production/pdns-auth-secret-patch.yaml

@@ -1,0 +1,149 @@
+# Deny all ingress and egress by default within the namespace.
+# Subsequent policies selectively open required traffic paths.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: dns
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Allow the internal recursor to receive DNS queries from on-system
+# RFC 1918 clients only. This enforces the split-horizon property at
+# the network layer in addition to the recursor's allow-from ACL.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-recursor-ingress
+  namespace: dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-recursor-internal
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 5301
+          protocol: UDP
+        - port: 5301
+          protocol: TCP
+---
+# Allow the external recursor to receive DNS queries from authorized
+# on-system sources only. This recursor must never be reachable from
+# arbitrary external clients.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-recursor-ingress
+  namespace: dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-recursor-external
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 5302
+          protocol: UDP
+        - port: 5302
+          protocol: TCP
+---
+# Allow both recursors to query the authoritative server on port 5300.
+# The authoritative server is never directly reachable by external clients.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-auth-ingress-from-recursors
+  namespace: dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-auth
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pdns-recursor-internal
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pdns-recursor-external
+      ports:
+        - port: 5300
+          protocol: UDP
+        - port: 5300
+          protocol: TCP
+---
+# Allow the authoritative server to send AXFR/IXFR zone transfers
+# to upstream DNS nameservers. This satisfies the requirement that the
+# on-system authoritative server synchronizes zone data with upstream
+# without using delegation.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-auth-egress-axfr
+  namespace: dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-auth
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.100.0.1/32
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Allow both recursors to forward queries to upstream DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-recursor-egress-upstream
+  namespace: dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: dns
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.100.0.1/32
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Allow the authoritative server egress to PostgreSQL backend.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-auth-egress-postgres
+  namespace: dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-auth
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
