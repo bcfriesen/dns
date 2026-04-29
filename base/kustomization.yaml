@@ -13,6 +13,7 @@ resources:
   - networkpolicy.yaml
   - pdbs.yaml
   - netpol-allow-dns-egress.yaml
+  - netpol-allow-apiserver-egress.yaml
 
 labels:
   - pairs:
