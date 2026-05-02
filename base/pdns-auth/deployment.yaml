@@ -86,6 +86,8 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            - name: run
+              mountPath: /var/run/pdns
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -123,4 +125,6 @@ spec:
           configMap:
             name: pdns-auth-config
         - name: tmp
+          emptyDir: {}
+        - name: run
           emptyDir: {}
