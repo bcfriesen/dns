@@ -15,6 +15,7 @@ resources:
   - netpol-allow-dns-egress.yaml
   - netpol-allow-apiserver-egress.yaml
   - netpol-allow-cnpg-operator-ingress.yaml
+  - netpol-allow-cnpg-intracluster.yaml
 
 labels:
   - pairs:
