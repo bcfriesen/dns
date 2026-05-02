@@ -7,8 +7,6 @@ metadata:
     app.kubernetes.io/name: pdns-auth
     app.kubernetes.io/component: authoritative
 spec:
-  # Two replicas satisfy the HA pair requirement from the architecture doc.
-  # Both replicas share zone state via the gpgsql backend.
   replicas: 2
   selector:
     matchLabels:
@@ -28,7 +26,6 @@ spec:
         checksum/config: "placeholder-replaced-by-kustomize-hash"
     spec:
       serviceAccountName: pdns
-      # Spread replicas across nodes for true HA
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -44,7 +41,26 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
-        # Wait for the PostgreSQL backend to be available before starting
+        - name: render-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - envsubst < /config-template/pdns.conf > /config-rendered/pdns.conf
+          envFrom:
+            - secretRef:
+                name: pdns-auth-secret
+          volumeMounts:
+            - name: config-template
+              mountPath: /config-template
+              readOnly: true
+            - name: config-rendered
+              mountPath: /config-rendered
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
         - name: wait-for-db
           image: busybox:1.36
           command:
@@ -80,7 +96,7 @@ spec:
             - secretRef:
                 name: pdns-auth-secret
           volumeMounts:
-            - name: config
+            - name: config-rendered
               mountPath: /etc/powerdns/pdns.conf
               subPath: pdns.conf
               readOnly: true
@@ -121,9 +137,11 @@ spec:
             periodSeconds: 10
             failureThreshold: 3
       volumes:
-        - name: config
+        - name: config-template
           configMap:
             name: pdns-auth-config
+        - name: config-rendered
+          emptyDir: {}
         - name: tmp
           emptyDir: {}
         - name: run

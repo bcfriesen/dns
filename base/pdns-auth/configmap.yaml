@@ -19,11 +19,11 @@ data:
     # --- Backend ---
     # gpgsql backend provides shared zone state across the HA pair
     launch=gpgsql
-    gpgsql-host=$(PDNS_DB_HOST)
+    gpgsql-host=${PDNS_DB_HOST}
     gpgsql-port=5432
-    gpgsql-dbname=$(PDNS_DB_NAME)
-    gpgsql-user=$(PDNS_DB_USER)
-    gpgsql-password=$(PDNS_DB_PASSWORD)
+    gpgsql-dbname=${PDNS_DB_NAME}
+    gpgsql-user=${PDNS_DB_USER}
+    gpgsql-password=${PDNS_DB_PASSWORD}
     gpgsql-dnssec=yes
 
     # --- DNSSEC ---
@@ -40,7 +40,7 @@ data:
 
     # --- API (used by automation/record management) ---
     api=yes
-    api-key=$(PDNS_API_KEY)
+    api-key=${PDNS_API_KEY}
     webserver=yes
     webserver-address=0.0.0.0
     webserver-port=8081
