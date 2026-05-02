@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-auth-egress-postgres
+  namespace: dns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pdns-auth
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: pdns-postgres
+      ports:
+        - port: 5432
+          protocol: TCP
