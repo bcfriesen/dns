@@ -123,22 +123,28 @@ spec:
               cpu: 2000m
               memory: 512Mi
           livenessProbe:
-            httpGet:
-              path: /api/v1/servers/localhost
-              port: webserver
-              httpHeaders:
-                - name: X-API-Key
-                  value: $(PDNS_API_KEY)
+            exec:
+              command:
+                - python3
+                - -c
+                - |
+                  import urllib.request, os, sys
+                  req = urllib.request.Request('http://localhost:8081/api/v1/servers/localhost')
+                  req.add_header('X-API-Key', os.environ['PDNS_API_KEY'])
+                  urllib.request.urlopen(req)
             initialDelaySeconds: 15
             periodSeconds: 20
             failureThreshold: 3
           readinessProbe:
-            httpGet:
-              path: /api/v1/servers/localhost
-              port: webserver
-              httpHeaders:
-                - name: X-API-Key
-                  value: $(PDNS_API_KEY)
+            exec:
+              command:
+                - python3
+                - -c
+                - |
+                  import urllib.request, os, sys
+                  req = urllib.request.Request('http://localhost:8081/api/v1/servers/localhost')
+                  req.add_header('X-API-Key', os.environ['PDNS_API_KEY'])
+                  urllib.request.urlopen(req)
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
