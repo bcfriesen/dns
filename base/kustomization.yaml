@@ -14,6 +14,7 @@ resources:
   - pdbs.yaml
   - netpol-allow-dns-egress.yaml
   - netpol-allow-apiserver-egress.yaml
+  - netpol-allow-cnpg-operator-ingress.yaml
 
 labels:
   - pairs:
