@@ -46,7 +46,13 @@ spec:
           command:
             - sh
             - -c
-            - envsubst < /config-template/pdns.conf > /config-rendered/pdns.conf
+            - |
+              sed "s|\${PDNS_DB_HOST}|$PDNS_DB_HOST|g;
+                   s|\${PDNS_DB_NAME}|$PDNS_DB_NAME|g;
+                   s|\${PDNS_DB_USER}|$PDNS_DB_USER|g;
+                   s|\${PDNS_DB_PASSWORD}|$PDNS_DB_PASSWORD|g;
+                   s|\${PDNS_API_KEY}|$PDNS_API_KEY|g" \
+                /config-template/pdns.conf > /config-rendered/pdns.conf
           envFrom:
             - secretRef:
                 name: pdns-auth-secret
